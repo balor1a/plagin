@@ -1,72 +1,89 @@
 const vscode = require('vscode');
 const { exec } = require('child_process');
 const path = require('path');
-
+const fs = require('fs');
 
 function activate(context) {
+    console.log('Congratulations, your extension "auto-build" is now active!');
 
-	console.log('Congratulations, your extension "auto-build" is now active!');
+    const disposable = vscode.commands.registerCommand('auto-build.buildProject', async function () {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
 
-
-	const disposable = vscode.commands.registerCommand('auto-build.buildProject', function () {
-		const workspaceFolders = vscode.workspace.workspaceFolders;
-
-		const terminal = vscode.window.createTerminal('CMake build');
-		terminal.show();
-
-		if (!workspaceFolders || workspaceFolders.length === 0) {
-			vscode.window.showErrorMessage('Откройте рабочую папку build.');
-			return;
-		}
-
-		const workspacePath = workspaceFolders[0].uri.fsPath;
-
-		const cmakeListsPath = `${workspacePath}/CMakeLists.txt`;
-
-		const buildPath = path.join(workspacePath, 'build');
-        try {
-            vscode.workspace.fs.stat(vscode.Uri.file(buildPath));
-        } catch {
-            vscode.window.showErrorMessage('Папка build создана автоматически.');
-			terminal.sendText('mkdir build');
-			terminal.sendText('cd build');
-			terminal.sendText('cmake -G Ninja ..');
-			terminal.sendText('cd ..');
-        }
-
-
-		try {
-			vscode.workspace.fs.stat(vscode.Uri.file(cmakeListsPath));
-		} catch {
-			vscode.window.showErrorMessage('CMakeLists.txt не найдены. Проверьте что файлы существуют и названы корректно.');
-			return;
-		}
-
-		
-		terminal.sendText('cd build');
-		terminal.sendText('cmake --build .');
-
-		const mainExePath = path.join(buildPath, 'main.exe');
-        try {
-            vscode.workspace.fs.stat(vscode.Uri.file(mainExePath));
-        } catch {
-            vscode.window.showErrorMessage('main.exe не найден. Проверьте конфигурацию сборки и название исполняемого файла.');
+        if (!workspaceFolders || workspaceFolders.length === 0) {
+            vscode.window.showErrorMessage('Откройте рабочую папку.');
             return;
         }
 
-		terminal.sendText('.\\main.exe');
-		terminal.sendText('cd ..');
+        const workspacePath = workspaceFolders[0].uri.fsPath;
+        const cmakeListsPath = path.join(workspacePath, 'CMakeLists.txt');
+        const buildPath = path.join(workspacePath, 'build');
 
-		vscode.window.showInformationMessage('Проект собран и запущен!');
-	});
+        
+        if (!fs.existsSync(cmakeListsPath)) {
+            vscode.window.showErrorMessage(`CMakeLists.txt не найден в папке: ${workspacePath}`);
+            return;
+        }
 
-	context.subscriptions.push(disposable);
+        try {
+            await executeCommand('cmake --version');
+        } catch {
+            vscode.window.showErrorMessage('CMake не установлен. Установите CMake и добавьте его в PATH.');
+            return;
+        }
+
+       
+        if (!fs.existsSync(buildPath)) {
+            try {
+                await fs.promises.mkdir(buildPath);
+                vscode.window.showInformationMessage('Папка build создана автоматически.');
+            } catch (error) {
+                vscode.window.showErrorMessage(`Ошибка при создании папки build: ${error.message}`);
+                return;
+            }
+        }
+
+        try {
+            await executeCommand('cmake -G Ninja ..', { cwd: buildPath });
+
+            
+            await executeCommand('cmake --build .', { cwd: buildPath });
+
+            
+            const executableName = process.platform === 'win32' ? 'main.exe' : 'main';
+            const mainExePath = path.join(buildPath, executableName);
+
+            if (!fs.existsSync(mainExePath)) {
+                vscode.window.showErrorMessage(`Исполняемый файл ${executableName} не найден. Проверьте конфигурацию сборки.`);
+                return;
+            }
+
+           
+            await executeCommand(`.${path.sep}${executableName}`, { cwd: buildPath });
+
+            vscode.window.showInformationMessage('Проект собран и запущен!');
+        } catch (error) {
+            vscode.window.showErrorMessage(`Ошибка: ${error.message}`);
+        }
+    });
+
+    context.subscriptions.push(disposable);
 }
 
+function executeCommand(command, options = {}) {
+    return new Promise((resolve, reject) => {
+        exec(command, options, (error, stdout, stderr) => {
+            if (error) {
+                reject(new Error(`Ошибка выполнения команды "${command}": ${stderr || stdout || error.message}`));
+            } else {
+                resolve(stdout);
+            }
+        });
+    });
+}
 
 function deactivate() {}
 
 module.exports = {
-	activate,
-	deactivate
-}
+    activate,
+    deactivate
+};

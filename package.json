@@ -19,19 +19,44 @@
         "command": "auto-build.buildProject",
         "title": "Auto-Build: Build Project"
       }
+    ],
+    "keybindings": [
+      {
+        "command": "auto-build.buildProject",
+        "key": "ctrl+alt+o",
+        "mac": "ctrl+alt+o",
+        "when": "editorTextFocus"
+      }
     ]
   },
   "scripts": {
     "lint": "eslint .",
     "pretest": "npm run lint",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "package": "vsce package"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/auto-build.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/auto-build/issues"
+  },
+  "keywords": [
+    "cmake",
+    "build",
+    "automation",
+    "c++",
+    "c"
+  ],
+  "license": "MIT",
   "devDependencies": {
-    "@types/vscode": "^1.96.0",
     "@types/mocha": "^10.0.9",
     "@types/node": "20.x",
-    "eslint": "^9.13.0",
+    "@types/vscode": "^1.96.0",
     "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.1"
+    "@vscode/test-electron": "^2.4.1",
+    "eslint": "^9.13.0",
+    "mkdirp": "^1.0.4"
   }
 }
